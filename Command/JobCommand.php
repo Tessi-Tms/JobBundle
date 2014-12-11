@@ -21,6 +21,11 @@ class JobCommand extends ContainerAwareCommand
         $this
             ->setName('job:run')
             ->setDescription('Executes tasks and tasks creation. Input Point of Job Bundle CRON.')
+            ->addArgument(
+                'jobCodeName',
+                InputArgument::OPTIONAL,
+                'What job to launch ?'
+            )
             ->addOption(
                'debug',
                null,
@@ -40,30 +45,37 @@ class JobCommand extends ContainerAwareCommand
 
     protected function findAndExecuteTasks(&$input, &$output)
     {
-		$em    = $this->getContainer()->get('doctrine')->getEntityManager('job');
-		$conn  = $this->getContainer()->get('doctrine.dbal.job_connection');
-		$limit = self::MAX_TASK_PROCESS;
-		$time  = date('1970-01-01 H:i:s');
+			$em    = $this->getContainer()->get('doctrine')->getEntityManager('job');
+			$conn  = $this->getContainer()->get('doctrine.dbal.job_connection');
+			$limit = self::MAX_TASK_PROCESS;
+			$time  = date('1970-01-01 H:i:s');
     	$sql = "
-			SELECT t.id FROM jobbundletask t
-			INNER JOIN jobbundlejob j ON j.id = t.job_id
-			WHERE t.startdate is null AND t.enddate IS NULL
-			AND j.currentRunningCount < j.maxconcurrenttasks
-			AND (
-					(
-						j.endTaskRestrictionDate > j.startTaskRestrictionDate
-					AND j.startTaskRestrictionDate < '$time'
-					AND j.endTaskRestrictionDate   > '$time'
-					)
-				OR 	(
-						j.endTaskRestrictionDate < j.startTaskRestrictionDate
-					AND NOT (	j.startTaskRestrictionDate < '$time'
-							AND j.endTaskRestrictionDate   > '$time')
-					)
-				)
-			ORDER BY t.executiondate ASC
-			LIMIT $limit
-    	";
+					SELECT t.id FROM jobbundletask t
+					INNER JOIN jobbundlejob j ON j.id = t.job_id
+					WHERE t.startdate is null
+					AND t.enddate IS NULL
+					AND j.currentRunningCount < j.maxconcurrenttasks"
+
+			if ($code = $input->getArgument('jobCodeName')) {
+					$sql .= "AND j.code = '" . $code. "'";
+			}
+
+			$sql .= "
+					AND (
+							(
+								j.endTaskRestrictionDate > j.startTaskRestrictionDate
+							AND j.startTaskRestrictionDate < '$time'
+							AND j.endTaskRestrictionDate   > '$time'
+							)
+						OR 	(
+								j.endTaskRestrictionDate < j.startTaskRestrictionDate
+							AND NOT (	j.startTaskRestrictionDate < '$time'
+									AND j.endTaskRestrictionDate   > '$time')
+							)
+						)
+					ORDER BY t.executiondate ASC
+					LIMIT $limit
+		    	";
 
         $tasksIds = $conn->fetchAll($sql);
 
@@ -74,9 +86,13 @@ class JobCommand extends ContainerAwareCommand
 
 
     	if(count($ids) == 0) {
-			$output->writeln('----NO TASKS TO EXECUTE');
-			return;
-		}
+				$message = '----NO TASKS TO EXECUTE';
+				if ($code) {
+						$message .= ' FOR JOB ' . $code;
+				}
+				$output->writeln($message);
+				return;
+			}
 
     	//Lock table to prevent task doudle execution
 		//$em->getConnection()->exec('LOCK TABLES _jobbundle_task AS _0_ READ;');
