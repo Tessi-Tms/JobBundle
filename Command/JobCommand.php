@@ -19,7 +19,7 @@ class JobCommand extends ContainerAwareCommand
     protected function configure()
     {
         $this
-            ->setName('job:run')
+            ->setName('job:runandcreate')
             ->setDescription('Executes tasks and tasks creation. Input Point of Job Bundle CRON.')
             ->addArgument(
                 'jobCodeName',
