@@ -57,7 +57,7 @@ class JobCommand extends ContainerAwareCommand
 					AND j.currentRunningCount < j.maxconcurrenttasks";
 
 			if ($code = $input->getArgument('jobCodeName')) {
-					$sql .= "AND j.code = '" . $code. "'";
+					$sql .= " AND j.code = '" . $code. "'";
 			}
 
 			$sql .= "
