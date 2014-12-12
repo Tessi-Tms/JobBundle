@@ -54,7 +54,7 @@ class JobCommand extends ContainerAwareCommand
 					INNER JOIN jobbundlejob j ON j.id = t.job_id
 					WHERE t.startdate is null
 					AND t.enddate IS NULL
-					AND j.currentRunningCount < j.maxconcurrenttasks"
+					AND j.currentRunningCount < j.maxconcurrenttasks";
 
 			if ($code = $input->getArgument('jobCodeName')) {
 					$sql .= "AND j.code = '" . $code. "'";
