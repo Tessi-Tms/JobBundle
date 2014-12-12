@@ -22,7 +22,7 @@ class JobCreateCommand extends ContainerAwareCommand
             ->setDescription('Executes tasks creation. Used in OS cron to schedule jobs.')
             ->addArgument(
                 'jobCodeName',
-                InputArgument::OPTIONAL,
+                InputArgument::REQUIRED,
                 'What job to schedule ?'
             )
             ->addOption(
@@ -44,19 +44,16 @@ class JobCreateCommand extends ContainerAwareCommand
 				// En revanche on conserve la vérification du flag isActive
 				// afin de permettre de désactiver le job en bdd sans modifier le cron (temporairement)
 				$jobsToExecute = $em->getRepository('JobBundle:Job')->createQueryBuilder('j')
-									// ->andWhere('j.startRangeDate < :currentDate')
-									// ->andWhere('j.endRangeDate > :currentDate')
+									->andWhere('j.code = :jobCodeName')
 									->andWhere('j.isActive = 1')
-									// ->setParameter('currentDate', $currentTime)
-									//->orderBy('j.executionDate', 'ASC')
-									//->setMaxResults(1)
+									->setParameter('jobCodeName', $input->getArgument('jobCodeName'))
 									->getQuery()->getResult();
 
 				foreach($jobsToExecute as $job) {
 						try {
-							$this->executeCreateJobTask($job, $output);
+  					       $this->executeCreateJobTask($job, $output);
 						} catch(\Exception $e) {
-							$output->writeln('--------ERROR (catched Exception) ON JOB #' . $job->getId());
+						        $output->writeln('--------ERROR (catched Exception) ON JOB #' . $job->getId());
 						}
 				}
 		}

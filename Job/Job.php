@@ -2,11 +2,11 @@
 
 namespace Tessi\JobBundle\Job;
 
-use Symfony\Component\DependencyInjection\ContainerAware;
+use Symfony\Component\DependencyInjection\ContainerAwareInterface;
 
-abstract class Job extends ContainerAware
+abstract class Job implements JobInterface, ContainerAwareInterface
 {
-	public function __construct($container)
+	public function __construct(ContainerAwareInterface $container)
 	{
 		$this->setContainer($container);
 	}
@@ -18,7 +18,7 @@ abstract class Job extends ContainerAware
 
 	public function executeTask($input, $scriptNamespace)
 	{
-
+		
 	}
 
 	protected function getContainer()
