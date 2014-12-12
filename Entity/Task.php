@@ -24,7 +24,7 @@ class Task
     /**
      * @var string
      *
-     * @ORM\OneToOne(targetEntity="Job")
+     * @ORM\ManyToOne(targetEntity="Job")
      */
     private $job;
 
