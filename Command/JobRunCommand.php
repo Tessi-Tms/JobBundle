@@ -196,7 +196,7 @@ var_dump($taskToExecute);
 					throw new \Exception("$scriptNamespace class do not exists.");
 				}
 
-				$output->writeln('------Task #' . $task->getId()) . ' Executing ' . $task->getJob()->getNamespace();
+				$output->writeln('------Task #' . $task->getId() . ' Executing ' . $task->getJob()->getNamespace());
 
 				$script = new $scriptNamespace($this->getContainer());
 				$input  =  (array) json_decode($task->getInput());
