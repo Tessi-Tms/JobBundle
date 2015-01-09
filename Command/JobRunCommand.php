@@ -114,7 +114,7 @@ class JobRunCommand extends ContainerAwareCommand
 										->andWhere('t.id = :id')
 										->andWhere('t.startDate IS NULL')
 										->andWhere('t.enddate IS NULL')
-										->setParameter('starDate', $startDate->format('Y-m-d H:i:s'));
+										->setParameter('starDate', $startDate->format('Y-m-d H:i:s'))
 										->setParameter('id', $id);
 								$result = $query->execute();
 
