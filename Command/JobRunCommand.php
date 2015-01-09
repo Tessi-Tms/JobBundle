@@ -132,6 +132,8 @@ class JobRunCommand extends ContainerAwareCommand
 										$taskToExecute[] = $task;
 
 										$this->incrementJobRunning($conn, $task->getJob()->getId());
+								} else {
+										$output->writeln('----Execution cancelled on task #' . $task->getId());
 								}
 						}
 						$em->flush();
