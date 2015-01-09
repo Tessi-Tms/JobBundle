@@ -119,11 +119,11 @@ class JobRunCommand extends ContainerAwareCommand
 								// Si la mise à jour est effecttuée, on prend la tâche sinon on l'ignore (un autre job:run l'a sans doute prise entre-temps)
 								if($result = 1) {
 										//On cherche les taches à executer
-										$taskToExecute[] =
-										$query = $em->getRepository('JobBundle:Task')->createQueryBuilder('t')
+									  $query = $em->getRepository('JobBundle:Task')->createQueryBuilder('t')
 														->andWhere('t.id = :id')
-														->setParameter('id', $id);
-										$query->getResult();
+												 		->setParameter('id', $id)
+														->getQuery();
+										$taskToExecute[] = $query->getResult();
 
 										$this->incrementJobRunning($conn, $id);
 								}
