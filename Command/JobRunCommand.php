@@ -143,7 +143,7 @@ class JobRunCommand extends ContainerAwareCommand
 				}
 
 				$output->writeln('--BEGIN OF ' . count($taskToExecute) . ' TASK(S) [' . $startDate->format('Y-m-d H:i:s') . ']');
-var_dump($taskToExecute);
+
 				foreach($taskToExecute as $task) {
 
 						try {
