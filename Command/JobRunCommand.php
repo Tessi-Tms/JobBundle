@@ -109,13 +109,15 @@ class JobRunCommand extends ContainerAwareCommand
 
 								// FLEB 07/01/2014: remplacement des màj d'objets par bulk UPDATE
 								// On met à jour une seule fois la date de début identique pour toutes les tâches ici (cf. plus loin par tâche)
-								$query = $em->createNativeQuery('UPDATE Tessi\JobBundle\Entity\Task t SET t.startDate = :startDate')
+								$query = $em->createQuery('UPDATE Tessi\JobBundle\Entity\Task t SET t.startDate = :startDate')
 										->andWhere('t.id = :id')
 										->andWhere('t.startDate IS NULL')
 										->andWhere('t.endDate IS NULL')
 										->setParameter('startDate', $startDate->format('Y-m-d H:i:s'))
 										->setParameter('id', $id);
-								$result = $query->executeUpdate();
+								$result = $query->execute();
+
+var_dump($result);
 
 								// Si la mise à jour est effecttuée, on prend la tâche sinon on l'ignore (un autre job:run l'a sans doute prise entre-temps)
 								if($result = 1) {
