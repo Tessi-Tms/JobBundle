@@ -111,8 +111,8 @@ class JobRunCommand extends ContainerAwareCommand
 								// On met à jour une seule fois la date de début identique pour toutes les tâches ici (cf. plus loin par tâche)
 								$updateSql = 'UPDATE Tessi\JobBundle\Entity\Task t SET t.startDate = :startDate WHERE t.id = :id AND t.startDate IS NULL AND t.endDate IS NULL';
 								$query = $em->createQuery($updateSql)
-										->setParameter('startDate', $startDate->format('Y-m-d H:i:s'))
-										->setParameter('id', $id);
+												->setParameter('startDate', $startDate->format('Y-m-d H:i:s'))
+												->setParameter('id', $id);
 
 								$result = $query->execute();
 
@@ -123,7 +123,7 @@ class JobRunCommand extends ContainerAwareCommand
 														->andWhere('t.id = :id')
 												 		->setParameter('id', $id)
 														->getQuery();
-										$taskToExecute[] = $query->getResult();
+										$taskToExecute[] = $query->getSingleResult();
 
 										$this->incrementJobRunning($conn, $id);
 								}
