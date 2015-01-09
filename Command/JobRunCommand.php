@@ -148,7 +148,6 @@ var_dump($taskToExecute);
 
 						try {
 								$startDate = new \DateTime('now');
-								$output->writeln('----Execution of task #' . $task->getId());
 								$task->setStartDate($startDate);
 								$em->flush();
 								$this->executeTache($task, $output);
@@ -197,7 +196,7 @@ var_dump($taskToExecute);
 					throw new \Exception("$scriptNamespace class do not exists.");
 				}
 
-				$output->writeln('------ ' . $task->getJob()->getNamespace() . ' on task #' . $task->getId());
+				$output->writeln('------Task #' . $task->getId()) . ' Executing ' . $task->getJob()->getNamespace();
 
 				$script = new $scriptNamespace($this->getContainer());
 				$input  =  (array) json_decode($task->getInput());
