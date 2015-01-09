@@ -58,7 +58,7 @@ class JobRunCommand extends ContainerAwareCommand
 						AND j.currentRunningCount < j.maxconcurrenttasks";
 
 				if ($code = $input->getArgument('jobCodeName')) {
-						$sql .= " AND j.code = '" . $code. "'";
+						$sql .= " AND j.code = '$code'";
 				}
 
 				$sql .= "
@@ -76,17 +76,20 @@ class JobRunCommand extends ContainerAwareCommand
 							)
 						ORDER BY t.executiondate ASC
 						LIMIT $limit
+						FOR UPDATE
 				  	";
 
 				$tasksIds = $conn->fetchAll($sql);
 
-				$ids = array();
+				// FLEB 06/01/2015: Changement de méthode vers native PHP
+				/*$ids = array();
 				foreach($tasksIds as $task) {
 						$ids[] = $task['id'];
-				}
+				}*/
+				$ids = array_column($tasksIds, 'id');
 
 				if(count($ids) == 0) {
-						$message = '----NO TASKS TO EXECUTE';
+						$message = '--NO TASKS TO EXECUTE';
 						if ($code) {
 								$message .= ' FOR JOB ' . $code;
 						}
@@ -94,58 +97,94 @@ class JobRunCommand extends ContainerAwareCommand
 						return;
 				}
 
-		  	//On cherche les taches à executer
-				$foundTasks = $em->getRepository('JobBundle:Task')->createQueryBuilder('t')
-													->andWhere('t.id IN (:ids)')
-									        ->setParameter('ids', $ids)
-													->getQuery()->getResult();
-
 				$taskToExecute = array();
-
 				$startDate = new \DateTime('now');
 
-		    //Lock task for other executions
-				foreach($foundTasks as $task) {
-						$taskToExecute[] = $task;
-						$task->setStartDate($startDate);
-		        $job = $task->getJob();
+				// FLEB 06/01/2015: Réfection de la méthode de prise en compte des tâches
+				// 									Ajout de la transaction et des blocs try/catch
+				$conn->beginTransaction();
+				try {
+						//Lock task for other executions
+						foreach($ids as $id) {
 
-		        $this->incrementJobRunning($job);
-		        $em->persist($job);
+								// FLEB 07/01/2014: remplacement des màj d'objets par bulk UPDATE
+								// On met à jour une seule fois la date de début identique pour toutes les tâches ici (cf. plus loin par tâche)
+								$query = $em->createQuery('UPDATE Tessi\JobBundle\Entity\Task t')
+										->seValue('t.startDate = :startDate')
+										->andWhere('t.id = :id')
+										->andWhere('t.startDate IS NULL')
+										->andWhere('t.enddate IS NULL')
+										->setParameter('starDate', $startDate->format('Y-m-d H:i:s'));
+										->setParameter('id', $id);
+								$result = $query->execute();
+
+								// Si la mise à jour est effecttuée, on prend la tâche sinon on l'ignore (un autre job:run l'a sans doute prise entre-temps)
+								if($result = 1) {
+										//On cherche les taches à executer
+										$taskToExecute[] = $em->getRepository('JobBundle:Task')->createQueryBuilder('t')
+														->andWhere('t.id = :id')
+														->setParameter('id', $id)
+														->getQuery()->getResult();
+										$this->incrementJobRunning($conn, $id);
+								}
+						}
+						$em->flush();
+						$conn->commit();
+
+				} catch (Exception $e) {
+						$conn->rollback();
+						$output->writeln('----Exception (Begin of task update) on task #' . $task->getId());
+						$task->setErrorMessage(	$e->getMessage() . chr(10)
+										. ' IN ' .      $e->getFile() . chr(10)
+										. ' ON LINE ' . $e->getLine() . chr(10)
+										. ' STACKSTRACE : ' .chr(10)
+										. $e->getTraceAsString());
+				    throw $e;
 				}
 
-				$em->flush();
-
-				$output->writeln('-------------------------------------------');
-				$output->writeln('----EXECUTION STARTING ON ' . count($taskToExecute) . ' TASK(S) [' . $startDate->format('Y-m-d H:i:s') . ']');
+				$output->writeln('--BEGIN OF ' . count($taskToExecute) . ' TASK(S) [' . $startDate->format('Y-m-d H:i:s') . ']');
 
 				foreach($taskToExecute as $task) {
 
 						try {
-								$output->writeln('--------Execution of task #' . $task->getId());
+								$startDate = new \DateTime('now');
+								$output->writeln('----Execution of task #' . $task->getId());
+								$task->setStartDate($startDate);
+								$em->flush();
 								$this->executeTache($task, $output);
 						} catch(\Exception $e) {
 
-						$output->writeln('--------ERROR (catched Exception) ON TASK #' . $task->getId());
-						$task->setErrorMessage(	$e->getMessage() . chr(10)
+								$output->writeln('------Exception (Script) on task #' . $task->getId());
+								$task->setErrorMessage(	$e->getMessage() . chr(10)
 												. ' IN ' .      $e->getFile() . chr(10)
 												. ' ON LINE ' . $e->getLine() . chr(10)
 												. ' STACKSTRACE : ' .chr(10)
 												. $e->getTraceAsString());
 						}
 
-						$task->setEndDate(new \DateTime('now'));
-						$job = $task->getJob();
+						// FLEB 06/01/2015: Ajout de la transaction et des blocs try/catch + mutualisation de plusieurs new \DateTime('now')
+						$endDate = new \DateTime('now');
+						$conn->beginTransaction();
+						try {
+								$task->setEndDate($endDate);
+								$job = $task->getJob();
 
-	          $this->decrementJobRunning($job);
-	          $em->persist($job);
+			          $this->decrementJobRunning($conn, $job->getId());
+			          $em->flush();
+								$conn->commit();
 
-						// $em->persist($task);
+						} catch (Exception $e) {
+								$conn->rollback();
+								$output->writeln('------Exception (End of task update) on task #' . $task->getId());
+								$task->setErrorMessage(	$e->getMessage() . chr(10)
+												. ' IN ' .      $e->getFile() . chr(10)
+												. ' ON LINE ' . $e->getLine() . chr(10)
+												. ' STACKSTRACE : ' .chr(10)
+												. $e->getTraceAsString());
+						}
 				}
-				$em->flush();
 
-				$endDate = new \DateTime('now');
-				$output->writeln('----END OF EXECUTION OF ' . count($taskToExecute) . ' TASK(S) [' . $endDate->format('Y-m-d H:i:s') . ']');
+				$output->writeln('--END OF ' . count($taskToExecute) . ' TASK(S) [' . $endDate->format('Y-m-d H:i:s') . ']');
 
     }
 
@@ -154,32 +193,30 @@ class JobRunCommand extends ContainerAwareCommand
 				$scriptNamespace = $task->getJob()->getNamespace();
 
 				if(!class_exists($scriptNamespace)) {
-					$output->writeln('--------SCRIPT $scriptNamespace class do not exists.');
+					$output->writeln('------$scriptNamespace class do not exists.');
 					throw new \Exception("$scriptNamespace class do not exists.");
 				}
 
-				$output->writeln('--------SCRIPT ' . $task->getJob()->getNamespace() . ' ON TASK #' . $task->getId());
+				$output->writeln('------ ' . $task->getJob()->getNamespace() . ' on task #' . $task->getId());
 
 				$script = new $scriptNamespace($this->getContainer());
 				$input  =  (array) json_decode($task->getInput());
 				$script->executeTask($input, $scriptNamespace);
 		}
 
-		protected function updateCurrentRunningCount($job, $delta)
+		protected function updateCurrentRunningCount($conn, $job_id, $delta)
 		{
-				$conn = $this->getContainer()->get('doctrine.dbal.job_connection');
-				$id   = $job->getId();
-				$sql  = "UPDATE jobbundlejob SET currentRunningCount = currentRunningCount + $delta WHERE id = $id";
+				$sql  = "UPDATE jobbundlejob SET currentRunningCount = currentRunningCount + $delta WHERE id = $job_id";
 				$conn->query($sql);
 		}
 
-		protected function incrementJobRunning($job)
+		protected function incrementJobRunning($conn, $job_id)
 		{
-				$this->updateCurrentRunningCount($job, 1);
+				$this->updateCurrentRunningCount($conn, $job_id, 1);
 		}
 
-		protected function decrementJobRunning($job)
+		protected function decrementJobRunning($conn, $job_id)
 		{
-				$this->updateCurrentRunningCount($job, -1);
+				$this->updateCurrentRunningCount($conn, $job_id, -1);
 		}
 }
