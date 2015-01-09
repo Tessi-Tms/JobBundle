@@ -109,7 +109,8 @@ class JobRunCommand extends ContainerAwareCommand
 
 								// FLEB 07/01/2014: remplacement des màj d'objets par bulk UPDATE
 								// On met à jour une seule fois la date de début identique pour toutes les tâches ici (cf. plus loin par tâche)
-								$updateSql = "UPDATE Tessi\JobBundle\Entity\Task t
+								$updateSql = "
+															UPDATE Tessi\JobBundle\Entity\Task t
 															SET t.startDate = :startDate
 															WHERE t.id = :id
 															AND t.startDate IS NULL
@@ -147,7 +148,7 @@ class JobRunCommand extends ContainerAwareCommand
 				    throw $e;
 				}
 
-				$output->writeln('--BEGIN OF ' . count($taskToExecute) . ' TASK(S) [' . $startDate->format('Y-m-d H:i:s') . ']');
+				$output->writeln('->>BEGIN OF ' . count($taskToExecute) . ' TASK(S) [' . $startDate->format('Y-m-d H:i:s') . ']');
 
 				foreach($taskToExecute as $task) {
 
@@ -188,7 +189,7 @@ class JobRunCommand extends ContainerAwareCommand
 						}
 				}
 
-				$output->writeln('--END OF ' . count($taskToExecute) . ' TASK(S) [' . $endDate->format('Y-m-d H:i:s') . ']');
+				$output->writeln('<<-END OF ' . count($taskToExecute) . ' TASK(S) [' . $endDate->format('Y-m-d H:i:s') . ']');
 
     }
 
